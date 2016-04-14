@@ -130,7 +130,7 @@ get_ademco(Socket, Count) ->
 
 
 
-
+%%%%
 
 %%% Читаем данные по Офицеру %%%
 get_officer(Socket,BinaryList,Count) ->
