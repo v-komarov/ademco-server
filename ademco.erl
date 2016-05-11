@@ -14,6 +14,7 @@
 start() ->
        process_flag(trap_exit, true),
        Pid = spawn_link(?MODULE, server, []),
+       io:format("server has been started ~p~n",[calendar:local_time()]),
 	   register(?MODULE, Pid),
 	   loop(Pid).
 
@@ -86,7 +87,7 @@ answer(Socket,Count) ->
             <<_:4/binary,Last:1/binary>> = Binary,
 
             if Last == <<253>> ->
-                io:format("1A OK ~n",[]),
+                io:format("1A OK ~p~n",[calendar:local_time()]),
                 Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
                 gen_tcp:send(Socket,<<Ans/binary>>);
                     true -> ok
@@ -104,24 +105,9 @@ get_ademco(Socket, Count) ->
          {ok, Binary} ->
             Data = binary_to_list(Binary),
 
-            %% {N,T0} = lists:split(4,Data),
-            %% {Ver,T1} = lists:split(2,T0),
-            %% {Ala,T2} = lists:split(1,T1),
-            %% {Kod,T3} = lists:split(3,T2),
-            %% {Part,T4} = lists:split(2,T3),
-            %% {Shl,Sum} = lists:split(3,T4),
-
-            %% N10 = list_to_integer(N),
-            %% Ver10 = list_to_integer(Ver),
-            %% Ala10 = list_to_integer(Ala),
-            %% Kod10 = list_to_integer(Kod),
-            %% Part10 = list_to_integer(Part),
-            %% Shl10 = list_to_integer(Shl),
-
-
             Cmd = lists:concat(["/usr/bin/psql db_sentry sur -h 127.0.0.1 -c \"SELECT getademco\(\'",Data,"\'\)\""]),
             os:cmd(Cmd),
-            io:format("~p ~n",[Data]),
+            io:format("~p ~p~n",[calendar:local_time(),Data]),
             Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
             gen_tcp:send(Socket,<<Ans/binary>>),
             get_request(Socket,[], Count)
@@ -139,7 +125,7 @@ get_officer(Socket,BinaryList,Count) ->
         if Binary == <<254>> ->
             Data = list_to_binary(lists:reverse(BinaryList)),
             DataList = binary_to_list(Data),
-	        io:format("~p ~n",[DataList]),
+	        io:format("~p ~p~n",[calendar:local_time(),DataList]),
             Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
             gen_tcp:send(Socket,<<Ans/binary>>),
             get_request(Socket,[], Count);
