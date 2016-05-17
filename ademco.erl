@@ -40,17 +40,8 @@ server() ->
 
 wait_connect(ListenSocket, Count) ->
 
-%%    case gen_tcp:accept(ListenSocket, ?TCP_ACCEPT_TIMEOUT) of
-%%         {ok, Socket} ->
-%%            io:format("Connect ~p~n",[Count]),
-%%            spawn(?MODULE, wait_connect, [ListenSocket, Count+1]),
-%%            get_request(Socket, [], Count);
-%%         {error, timeout} ->
-
-%%    end.
 
     {ok, Socket} = gen_tcp:accept(ListenSocket),
-    %% io:format("Connect ~p~n",[Count]),
     spawn(?MODULE, wait_connect, [ListenSocket, Count+1]),
     get_request(Socket, [], Count).
 
@@ -71,11 +62,36 @@ get_request(Socket, BinaryList, Count) ->
         if Binary == <<254>> -> get_officer(Socket,[],Count);
             true -> ok
         end,
+        if Binary == <<251>> -> sync_answer(Socket,Count);
+            true -> ok
+        end,
 
 	    get_request(Socket, [Binary|BinaryList], Count)
 
 
     end.
+
+
+
+
+
+
+sync_answer(Socket,Count) ->
+    case gen_tcp:recv(Socket,5) of
+        {ok, Binary} ->
+            <<_:4/binary,Last:1/binary>> = Binary,
+
+            if Last == <<251>> ->
+                io:format("sync ~p~n",[calendar:local_time()]),
+                Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+                gen_tcp:send(Socket,<<Ans/binary>>);
+                    true -> ok
+            end,
+        get_request(Socket,[], Count)
+    end.
+
+
+
 
 
 
@@ -105,8 +121,8 @@ get_ademco(Socket, Count) ->
          {ok, Binary} ->
             Data = binary_to_list(Binary),
 
-            Cmd = lists:concat(["/usr/bin/psql db_sentry sur -h 127.0.0.1 -c \"SELECT getademco\(\'",Data,"\'\)\""]),
-            os:cmd(Cmd),
+            %% Cmd = lists:concat(["ls"]),
+            %% os:cmd(Cmd),
             io:format("~p ~p~n",[calendar:local_time(),Data]),
             Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
             gen_tcp:send(Socket,<<Ans/binary>>),
