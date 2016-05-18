@@ -54,17 +54,14 @@ get_request(Socket, BinaryList, Count) ->
 	{ok, Binary} ->
 
 	    %% io:format("Connect ~p~n",[Count]),
-	    if Binary == <<255>> -> get_ademco(Socket,Count);
-		    true -> ok
-	    end,
-        if Binary == <<253>> -> answer(Socket,Count);
-            true -> ok
-        end,
-        if Binary == <<254>> -> get_officer(Socket,[],Count);
-            true -> ok
-        end,
-        if Binary == <<251>> -> sync_answer(Socket,Count);
-            true -> ok
+	    case Binary of
+
+	        <<255>> -> get_ademco(Socket,Count);
+            <<253>> -> answer(Socket,Count);
+            <<254>> -> get_officer(Socket,[],Count);
+            <<251>> -> sync_answer(Socket,Count);
+            true -> ok, io:format("sync ~p~p~n",[calendar:local_time(),Binary])
+
         end,
 
 	    get_request(Socket, [Binary|BinaryList], Count)
