@@ -4,6 +4,7 @@
 
 -define(TCP_ACCEPT_TIMEOUT, 1000).
 -define(TCP_RECV_TIMEOUT, 1000).
+-define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
 
 
 
@@ -121,10 +122,11 @@ get_ademco(Socket, Count) ->
          {ok, Binary} ->
             Data = binary_to_list(Binary),
 
-            %% Cmd = lists:concat(["ls"]),
-            %% os:cmd(Cmd),
+            Cmd = lists:concat([?CMD_OFFICER,Data]),
+            os:cmd(Cmd),
             io:format("~p ~p~n",[calendar:local_time(),Data]),
             Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+            io:format("~p ~p~n",[calendar:local_time(),Cmd]),
             gen_tcp:send(Socket,<<Ans/binary>>),
             get_request(Socket,[], Count)
 
