@@ -87,6 +87,8 @@ sync_answer(Socket,Count) ->
                 Cmd = lists:concat([?CMD_OFFICER_SYNC,Data]),
                 os:cmd(Cmd),
 
+                io:format("~p ~p~n",[calendar:local_time(),Cmd]),
+
                 Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
                 gen_tcp:send(Socket,<<Ans/binary>>);
                     true -> ok
