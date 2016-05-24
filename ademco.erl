@@ -5,6 +5,7 @@
 -define(TCP_ACCEPT_TIMEOUT, 1000).
 -define(TCP_RECV_TIMEOUT, 1000).
 -define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
+-define(CMD_OFFICER_SYNC,"cd ~/django/sur;python manage.py officer-sync ").
 
 
 
@@ -77,10 +78,15 @@ get_request(Socket, BinaryList, Count) ->
 sync_answer(Socket,Count) ->
     case gen_tcp:recv(Socket,5) of
         {ok, Binary} ->
-            <<_:4/binary,Last:1/binary>> = Binary,
+            <<Panel:4/binary,Last:1/binary>> = Binary,
 
             if Last == <<251>> ->
-                io:format("sync ~p~n",[calendar:local_time()]),
+                io:format("sync ~p ~p~n",[calendar:local_time(),Panel]),
+
+                Data = binary_to_list(Panel),
+                Cmd = lists:concat([?CMD_OFFICER_SYNC,Data]),
+                os:cmd(Cmd),
+
                 Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
                 gen_tcp:send(Socket,<<Ans/binary>>);
                     true -> ok
