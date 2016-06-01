@@ -61,7 +61,8 @@ get_request(Socket, BinaryList, Count) ->
             <<253>> -> answer(Socket,Count);
             <<254>> -> get_officer(Socket,[],Count);
             <<251>> -> sync_answer(Socket,Count);
-            true -> ok, io:format("sync ~p~p~n",[calendar:local_time(),Binary])
+            <<_>> -> io:format("error ~p~p~n",[calendar:local_time(),Binary]);
+            true -> ok
 
         end,
 
