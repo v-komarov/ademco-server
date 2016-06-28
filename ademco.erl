@@ -124,7 +124,7 @@ answer(Socket,Count) ->
 
 %%% Читаем с панели 16 байт %%%%
 get_ademco(Socket, Count) ->
-    case gen_tcp:recv(Socket, 16) of
+    case gen_tcp:recv(Socket, 21) of
          {ok, Binary} ->
             Data = binary_to_list(Binary),
 
