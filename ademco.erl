@@ -18,7 +18,6 @@ start() ->
        process_flag(trap_exit, true),
        Pid = spawn_link(?MODULE, server, []),
        io:format("server has been started ~p~n",[calendar:local_time()]),
-	   register(?MODULE, Pid),
 	   loop(Pid).
 
 
@@ -43,9 +42,8 @@ server() ->
 
 wait_connect(ListenSocket) ->
 
-
     {ok, Socket} = gen_tcp:accept(ListenSocket),
-    spawn(?MODULE, wait_connect, [ListenSocket]),
+    spawn_link(?MODULE, wait_connect, [ListenSocket]),
     get_request(Socket, []).
 
 
@@ -92,7 +90,7 @@ sync_answer(Socket) ->
                 gen_tcp:send(Socket,<<Ans/binary>>);
                     true -> ok
             end,
-        get_request(Socket,[])
+        get_message(Socket)
     end.
 
 
@@ -127,20 +125,22 @@ genword(Socket) ->
                         K = os:cmd(Cmd2),
                         io:format("CHECK ~p~n",[K]),
 
-                        if K == "True\n" ->
+
+                        if
+                           K == "True\n" ->
+                           Ans2 = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+                           gen_tcp:send(Socket,<<Ans2/binary>>),
                            io:format("CONNECT OK ~n",[]),
-                           Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
-                           gen_tcp:send(Socket,<<Ans/binary>>),
                            get_message(Socket);
-                            true -> ok
-                        end,
 
-                        io:format("CONNECT ERROR ~n",[]),
-                        exit("ERRORDES")
+                           K == "False\n" ->
+                           io:format("CONNECT ERROR ~n",[]),
+                           get_request(Socket,[])
 
-                    end,
+                        end
 
-        get_request(Socket,[])
+                    end
+
     end.
 
 
@@ -154,7 +154,7 @@ get_message(Socket) ->
     case gen_tcp:recv(Socket, 1) of
 	        {ok, Binary} ->
 
-	    io:format("Connect ~p~n",[Binary]),
+	    %io:format("Connect ~p~n",[Binary]),
 	    case Binary of
 	        <<255>> -> get_ademco(Socket);
             <<254>> -> get_officer(Socket,[]);
