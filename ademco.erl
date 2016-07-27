@@ -43,7 +43,7 @@ server() ->
 wait_connect(ListenSocket) ->
 
     {ok, Socket} = gen_tcp:accept(ListenSocket),
-    spawn_link(?MODULE, wait_connect, [ListenSocket]),
+    spawn(?MODULE, wait_connect, [ListenSocket]),
     get_request(Socket, []).
 
 
