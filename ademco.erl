@@ -1,5 +1,5 @@
 -module(ademco).
--export([start/0,server/0,wait_connect/1,dog/1,check_proc/1]).
+-export([start/0,server/1,wait_connect/1,dog/1,check_proc/1]).
 
 
 -define(DEBUG,true).
@@ -29,12 +29,9 @@ start() ->
        Tabid = ets:new(aliveTab,[ordered_set,public]),
 
        process_flag(trap_exit, true),
-       Pid = spawn_link(?MODULE, server, []),
+       Pid = spawn_link(?MODULE, server, [Tabid]),
        register(main,Pid),
        io:format("server has been started ~p ~w~n",[calendar:local_time(),Pid]),
-       Pid2 = spawn_link(?MODULE, dog, [Tabid]),
-       register(dw,Pid2),
-       io:format("dog has been started ~p ~w~n",[calendar:local_time(),Pid2]),
        loop(Pid).
 
 
@@ -43,9 +40,7 @@ start() ->
 loop(Pid) ->
     receive
         {'EXIT', Pid, _} ->
-            timer:sleep(20000),
             start()
-
     end,
     loop(Pid).
 
@@ -89,7 +84,11 @@ check_proc(Tabid) ->
 
 
 
-server() ->
+server(Tabid) ->
+    process_flag(trap_exit, true),
+    Pid2 = spawn_link(?MODULE, dog, [Tabid]),
+    register(dw,Pid2),
+    io:format("dog has been started ~p ~w~n",[calendar:local_time(),Pid2]),
     {ok, ListenSocket} = gen_tcp:listen(11112, [binary, {active, false}]),
     wait_connect(ListenSocket).
 
