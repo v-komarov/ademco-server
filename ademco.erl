@@ -24,6 +24,8 @@
 
 
 
+
+
 start() ->
 
        Tabid = ets:new(aliveTab,[ordered_set,public]),
@@ -40,6 +42,7 @@ start() ->
 loop(Pid) ->
     receive
         {'EXIT', Pid, _} ->
+            timer:sleep(20000),
             start()
     end,
     loop(Pid).
@@ -89,7 +92,7 @@ server(Tabid) ->
     Pid2 = spawn_link(?MODULE, dog, [Tabid]),
     register(dw,Pid2),
     io:format("dog has been started ~p ~w~n",[calendar:local_time(),Pid2]),
-    {ok, ListenSocket} = gen_tcp:listen(11112, [binary, {active, false}]),
+    {ok, ListenSocket} = gen_tcp:listen(11114, [binary, {active, false}]),
     wait_connect(ListenSocket).
 
 
@@ -216,6 +219,7 @@ get_message(Socket) ->
 	    %io:format("Connect ~p~n",[Binary]),
 	    case Binary of
 	        <<255>> -> get_ademco(Socket);
+            <<247>> -> get_listademco(Socket,[]);
             <<254>> -> get_officer(Socket,[]);
             <<251>> -> sync_answer(Socket);
             <<_>> -> io:format("error ~p~p ~w~n",[calendar:local_time(),Binary,self()]);
@@ -254,7 +258,47 @@ get_ademco(Socket) ->
 
 
 
-%%%%
+
+%%%% Читаем с панели пакет сообщений %%%%
+get_listademco(Socket,BinaryList) ->
+    case gen_tcp:recv(Socket, 1) of
+	{ok, Binary} ->
+        if Binary == <<247>> ->
+            run_listademco(Socket,lists:reverse(BinaryList));
+                true -> ok
+        end,
+
+	    get_listademco(Socket,[Binary|BinaryList])
+    end.
+
+
+
+
+
+%%%% Выполнение пакета сообщений %%%%
+run_listademco(Socket,DataList) ->
+
+    if length(DataList) < 21 ->
+        Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+        gen_tcp:send(Socket,<<Ans/binary>>),
+        get_message(Socket);
+                true -> ok
+    end,
+    MessList = lists:split(21,DataList),
+    H = element(1,MessList),
+
+    Data = list_to_binary(H),
+    Cmd = lists:concat([?CMD_OFFICER,binary_to_list(Data)]),
+    os:cmd(Cmd),
+    io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
+
+    T = element(2,MessList),
+    run_listademco(Socket,T).
+
+
+
+
+
 
 %%% Читаем данные по Офицеру %%%
 get_officer(Socket,BinaryList) ->
