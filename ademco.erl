@@ -132,7 +132,7 @@ get_request(Socket, BinaryList) ->
 
 
 
-sync_answer(Socket) ->
+sync_answer(Socket,Panell) ->
     case gen_tcp:recv(Socket,5) of
         {ok, Binary} ->
             <<Panel:4/binary,Last:1/binary>> = Binary,
@@ -152,7 +152,7 @@ sync_answer(Socket) ->
                 gen_tcp:send(Socket,<<Ans/binary>>);
                     true -> ok
             end,
-        get_message(Socket)
+        get_message(Socket,Panell)
     end.
 
 
@@ -190,14 +190,14 @@ genword(Socket) ->
 
                         if
                            K == "True\n" ->
-                           Ans2 = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
-                           gen_tcp:send(Socket,<<Ans2/binary>>),
-                           io:format("CONNECT OK ~w~n",[self()]),
-                           get_message(Socket);
+                               Ans2 = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+                               gen_tcp:send(Socket,<<Ans2/binary>>),
+                               io:format("CONNECT OK ~w~n",[self()]),
+                               get_message(Socket,Id_panel);
 
                            K == "False\n" ->
-                           io:format("CONNECT ERROR ~w~n",[self()]),
-                           get_request(Socket,[])
+                               io:format("CONNECT ERROR ~w~n",[self()]),
+                               get_request(Socket,[])
 
                         end
 
@@ -210,24 +210,43 @@ genword(Socket) ->
 
 
 
-%% Прием сообщений от панели
-get_message(Socket) ->
 
-    case gen_tcp:recv(Socket, 1) of
+
+
+
+
+
+
+%% Прием сообщений от панели
+get_message(Socket,Panell) ->
+
+
+    case gen_tcp:recv(Socket, 1,5000) of
 	        {ok, Binary} ->
 
-	    %io:format("Connect ~p~n",[Binary]),
-	    case Binary of
-	        <<255>> -> get_ademco(Socket);
-            <<247>> -> get_listademco(Socket,[]);
-            <<254>> -> get_officer(Socket,[]);
-            <<251>> -> sync_answer(Socket);
-            <<_>> -> io:format("error ~p~p ~w~n",[calendar:local_time(),Binary,self()]);
-            true -> ok
+                %io:format("Connect ~p~n",[Binary]),
+                case Binary of
+                    <<255>> -> get_ademco(Socket,Panell);
+                    <<247>> -> get_listademco(Socket,[],Panell);
+                    <<254>> -> get_officer(Socket,[],Panell);
+                    <<251>> -> sync_answer(Socket,Panell);
+                    <<_>> -> io:format("error ~p~p ~w~n",[calendar:local_time(),Binary,self()]);
+                    true -> ok
 
-        end,
+                end;
 
-	    get_message(Socket)
+            {error, timeout} ->
+
+                %%%% Передача команды в панель! НАЧАЛО %%%%
+                %%%% Если 10 секунд нет от панели сообщений , то передаем команду в панель! %%%%
+                io:format("COMMANDS ~p~n",[Panell]),
+
+
+                io:format("TIMEOUT ~n",[]),
+
+                %%%%% Передача в панель КОНЕЦ %%%%%
+                get_message(Socket,Panell)
+
 
 
     end.
@@ -237,9 +256,8 @@ get_message(Socket) ->
 
 
 
-
 %%% Читаем с панели 21 байт %%%%
-get_ademco(Socket) ->
+get_ademco(Socket,Panell) ->
     case gen_tcp:recv(Socket, 21) of
          {ok, Binary} ->
             Data = binary_to_list(Binary),
@@ -250,7 +268,7 @@ get_ademco(Socket) ->
             Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
             io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
             gen_tcp:send(Socket,<<Ans/binary>>),
-            get_message(Socket)
+            get_message(Socket,Panell)
 
     end.
 
@@ -260,15 +278,15 @@ get_ademco(Socket) ->
 
 
 %%%% Читаем с панели пакет сообщений %%%%
-get_listademco(Socket,BinaryList) ->
+get_listademco(Socket,BinaryList,Panell) ->
     case gen_tcp:recv(Socket, 1) of
 	{ok, Binary} ->
         if Binary == <<247>> ->
-            run_listademco(Socket,lists:reverse(BinaryList));
+            run_listademco(Socket,lists:reverse(BinaryList),Panell);
                 true -> ok
         end,
 
-	    get_listademco(Socket,[Binary|BinaryList])
+	    get_listademco(Socket,[Binary|BinaryList],Panell)
     end.
 
 
@@ -276,12 +294,12 @@ get_listademco(Socket,BinaryList) ->
 
 
 %%%% Выполнение пакета сообщений %%%%
-run_listademco(Socket,DataList) ->
+run_listademco(Socket,DataList,Panell) ->
 
     if length(DataList) < 21 ->
         Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
         gen_tcp:send(Socket,<<Ans/binary>>),
-        get_message(Socket);
+        get_message(Socket,Panell);
                 true -> ok
     end,
     MessList = lists:split(21,DataList),
@@ -293,7 +311,7 @@ run_listademco(Socket,DataList) ->
     io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
 
     T = element(2,MessList),
-    run_listademco(Socket,T).
+    run_listademco(Socket,T,Panell).
 
 
 
@@ -301,7 +319,7 @@ run_listademco(Socket,DataList) ->
 
 
 %%% Читаем данные по Офицеру %%%
-get_officer(Socket,BinaryList) ->
+get_officer(Socket,BinaryList,Panell) ->
     case gen_tcp:recv(Socket, 1) of
 	{ok, Binary} ->
         if Binary == <<254>> ->
@@ -314,7 +332,7 @@ get_officer(Socket,BinaryList) ->
                 true -> ok
         end,
 
-	    get_officer(Socket,[Binary|BinaryList])
+	    get_officer(Socket,[Binary|BinaryList],Panell)
     end.
 
 
