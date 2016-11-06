@@ -242,8 +242,9 @@ get_message(Socket,Panell) ->
                 %%%% Передача команды в панель! НАЧАЛО %%%%
                 %%%% Если 5 секунд нет от панели сообщений , то передаем команду в панель! %%%%
                 Cmd = lists:concat([?CMD_GETCOM,Panell]),
-                os:cmd(Cmd),
+                A = os:cmd(Cmd),
                 io:format("GETCOMMAND ~p~n",[Cmd]),
+                io:format("~p~n",[A]),
 
 
 
