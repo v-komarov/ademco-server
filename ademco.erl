@@ -9,11 +9,13 @@
 -define(CMD_OFFICER_SYNC,"cd ~/django/sur;python manage.py officer-sync ").
 -define(CMD_GENPW,"cd ~/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd ~/django/sur;python manage.py check-des ").
+-define(CMD_GETCOM,"cd ~/django/sur;python manage.py get-command ").
 -else.
 -define(CMD_OFFICER,"cd /srv/django/sur;python manage.py ademco-officer ").
 -define(CMD_OFFICER_SYNC,"cd /srv/django/sur;python manage.py officer-sync ").
 -define(CMD_GENPW,"cd /srv/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd /srv/django/sur;python manage.py check-des ").
+-define(CMD_GETCOM,"cd /srv/django/sur;python manage.py get-command ").
 -endif.
 
 -define(TCP_ACCEPT_TIMEOUT, 1000).
@@ -239,7 +241,9 @@ get_message(Socket,Panell) ->
 
                 %%%% Передача команды в панель! НАЧАЛО %%%%
                 %%%% Если 5 секунд нет от панели сообщений , то передаем команду в панель! %%%%
-                io:format("COMMANDS ~p~n",[Panell]),
+                Cmd = lists:concat([?CMD_GETCOM,Panell]),
+                os:cmd(Cmd),
+                io:format("GETCOMMAND ~p~n",[Cmd]),
 
 
 
