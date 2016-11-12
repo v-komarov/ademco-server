@@ -1,6 +1,6 @@
 -module(ademco).
 -export([start/0,server/1,wait_connect/1,dog/1,check_proc/1]).
-
+-import(hex2bin,[bin_to_hexstr/1,hexstr_to_bin/1]).
 
 -define(DEBUG,true).
 
@@ -243,9 +243,22 @@ get_message(Socket,Panell) ->
                 %%%% Если 5 секунд нет от панели сообщений , то передаем команду в панель! %%%%
                 Cmd = lists:concat([?CMD_GETCOM,Panell]),
                 A = os:cmd(Cmd),
+                B = lists:reverse(element(2,lists:split(2,lists:reverse(A)))),
+                C = hexstr_to_bin(B),
+                D = <<248,C/binary,248,26>>,
+                gen_tcp:send(Socket,D),
                 io:format("GETCOMMAND ~p~n",[Cmd]),
-                io:format("~p~n",[A]),
+                io:format("SENDCOMMAND ~p~n",[D]),
 
+                case gen_tcp:recv(Socket, 1, 2000) of
+                    {ok, Binary2} ->
+                        case Binary2 of
+                            <<248>> -> push_anser(Socket,Panell);
+                            true -> ok
+                        end;
+                    {error, timeout} -> get_message(Socket,Panell);
+                    true -> ok
+                end,
 
 
 
@@ -256,6 +269,11 @@ get_message(Socket,Panell) ->
 
     end.
 
+
+
+push_anser(Socket,Panell) ->
+    io:format("PUSH_ANSWER ~n",[]),
+    get_message(Socket,Panell).
 
 
 
