@@ -2,20 +2,22 @@
 -export([start/0,server/1,wait_connect/1,dog/1,check_proc/1]).
 -import(hex2bin,[bin_to_hexstr/1,hexstr_to_bin/1]).
 
+
+
 -define(DEBUG,true).
 
 -ifdef(DEBUG).
 -define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
 -define(CMD_OFFICER_SYNC,"cd ~/django/sur;python manage.py officer-sync ").
+-define(CMD_GETCOM,"cd ~/django/sur;python manage.py get-command ").
 -define(CMD_GENPW,"cd ~/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd ~/django/sur;python manage.py check-des ").
--define(CMD_GETCOM,"cd ~/django/sur;python manage.py get-command ").
 -else.
 -define(CMD_OFFICER,"cd /srv/django/sur;python manage.py ademco-officer ").
 -define(CMD_OFFICER_SYNC,"cd /srv/django/sur;python manage.py officer-sync ").
+-define(CMD_GETCOM,"cd /srv/django/sur;python manage.py get-command ").
 -define(CMD_GENPW,"cd /srv/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd /srv/django/sur;python manage.py check-des ").
--define(CMD_GETCOM,"cd /srv/django/sur;python manage.py get-command ").
 -endif.
 
 -define(TCP_ACCEPT_TIMEOUT, 1000).
@@ -134,33 +136,6 @@ get_request(Socket, BinaryList) ->
 
 
 
-sync_answer(Socket,Panell) ->
-    case gen_tcp:recv(Socket,5) of
-        {ok, Binary} ->
-            <<Panel:4/binary,Last:1/binary>> = Binary,
-
-            if Last == <<251>> ->
-                io:format("sync ~p ~p ~w~n",[calendar:local_time(),Panel,self()]),
-
-                Data = binary_to_list(Panel),
-                Cmd = lists:concat([?CMD_OFFICER_SYNC,Data]),
-                os:cmd(Cmd),
-
-                io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
-
-                dw ! {alive,self()},
-
-                Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
-                gen_tcp:send(Socket,<<Ans/binary>>);
-                    true -> ok
-            end,
-        get_message(Socket,Panell)
-    end.
-
-
-
-
-
 %% Герерация секретного слова - проверка валидности соединения
 genword(Socket) ->
     case gen_tcp:recv(Socket,9) of
@@ -215,6 +190,33 @@ genword(Socket) ->
 
 
 
+sync_answer(Socket,Panell) ->
+    case gen_tcp:recv(Socket,5) of
+        {ok, Binary} ->
+            <<Panel:4/binary,Last:1/binary>> = Binary,
+
+            if Last == <<251>> ->
+                io:format("sync ~p ~p ~w~n",[calendar:local_time(),Panel,self()]),
+
+                Data = binary_to_list(Panel),
+                Cmd = lists:concat([?CMD_OFFICER_SYNC,Data]),
+                os:cmd(Cmd),
+
+                io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
+
+                dw ! {alive,self()},
+
+                Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+                gen_tcp:send(Socket,<<Ans/binary>>);
+                    true -> ok
+            end,
+        get_message(Socket,Panell)
+    end.
+
+
+
+
+
 
 
 
@@ -228,6 +230,7 @@ get_message(Socket,Panell) ->
 
                 %io:format("Connect ~p~n",[Binary]),
                 case Binary of
+                    <<248>> -> push_anser(Socket,[],Panell);
                     <<255>> -> get_ademco(Socket,Panell);
                     <<247>> -> get_listademco(Socket,[],Panell);
                     <<254>> -> get_officer(Socket,[],Panell);
@@ -245,21 +248,10 @@ get_message(Socket,Panell) ->
                 A = os:cmd(Cmd),
                 B = lists:reverse(element(2,lists:split(2,lists:reverse(A)))),
                 C = hexstr_to_bin(B),
-                D = <<248,C/binary,248,26>>,
+                D = <<248,C/binary,15,248,26>>,
                 gen_tcp:send(Socket,D),
                 io:format("GETCOMMAND ~p~n",[Cmd]),
                 io:format("SENDCOMMAND ~p~n",[D]),
-
-                case gen_tcp:recv(Socket, 1, 2000) of
-                    {ok, Binary2} ->
-                        case Binary2 of
-                            <<248>> -> push_anser(Socket,Panell);
-                            true -> ok
-                        end;
-                    {error, timeout} -> get_message(Socket,Panell);
-                    true -> ok
-                end,
-
 
 
                 %%%%% Передача в панель КОНЕЦ %%%%%
@@ -271,9 +263,34 @@ get_message(Socket,Panell) ->
 
 
 
-push_anser(Socket,Panell) ->
-    io:format("PUSH_ANSWER ~n",[]),
-    get_message(Socket,Panell).
+
+
+push_anser(Socket,BinaryList,Panell) ->
+
+    case gen_tcp:recv(Socket, 1,1000) of
+        {ok, Binary} ->
+
+            case Binary of
+                <<248>> ->
+                    Data = list_to_binary(lists:reverse(BinaryList)),
+                    %DataList = binary_to_list(Data),
+                    io:format("PUSH_ANSWER ~p ~p ~w~n",[calendar:local_time(),bin_to_hexstr(Data),self()]),
+                    Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
+                    gen_tcp:send(Socket,<<Ans/binary>>),
+                    get_message(Socket,Panell);
+                 <<_>> -> push_anser(Socket,[Binary|BinaryList],Panell);
+                 true -> ok
+            end;
+
+        {error, timeout} ->
+            get_message(Socket,Panell)
+
+
+    end.
+
+
+
+
 
 
 
