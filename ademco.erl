@@ -10,12 +10,14 @@
 -define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
 -define(CMD_OFFICER_SYNC,"cd ~/django/sur;python manage.py officer-sync ").
 -define(CMD_GETCOM,"cd ~/django/sur;python manage.py get-command ").
+-define(CMD_DONECOM,"cd ~/django/sur;python manage.py done-command ").
 -define(CMD_GENPW,"cd ~/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd ~/django/sur;python manage.py check-des ").
 -else.
 -define(CMD_OFFICER,"cd /srv/django/sur;python manage.py ademco-officer ").
 -define(CMD_OFFICER_SYNC,"cd /srv/django/sur;python manage.py officer-sync ").
 -define(CMD_GETCOM,"cd /srv/django/sur;python manage.py get-command ").
+-define(CMD_DONECOM,"cd /srv/django/sur;python manage.py done-command ").
 -define(CMD_GENPW,"cd /srv/django/sur;python manage.py gen-pw ").
 -define(CMD_CHECKDES,"cd /srv/django/sur;python manage.py check-des ").
 -endif.
@@ -246,9 +248,14 @@ get_message(Socket,Panell) ->
                 %%%% Если 5 секунд нет от панели сообщений , то передаем команду в панель! %%%%
                 Cmd = lists:concat([?CMD_GETCOM,Panell]),
                 A = os:cmd(Cmd),
-                B = lists:reverse(element(2,lists:split(2,lists:reverse(A)))),
+                if A == "None\n"
+                         -> get_message(Socket,Panell);
+                    true -> ok
+
+                end,
+                B = element(1,lists:split(length(A) - 1,A)),
                 C = hexstr_to_bin(B),
-                D = <<248,C/binary,15,248,26>>,
+                D = <<248,C/binary,248,26>>,
                 gen_tcp:send(Socket,D),
                 io:format("GETCOMMAND ~p~n",[Cmd]),
                 io:format("SENDCOMMAND ~p~n",[D]),
@@ -273,8 +280,10 @@ push_anser(Socket,BinaryList,Panell) ->
             case Binary of
                 <<248>> ->
                     Data = list_to_binary(lists:reverse(BinaryList)),
-                    %DataList = binary_to_list(Data),
                     io:format("PUSH_ANSWER ~p ~p ~w~n",[calendar:local_time(),bin_to_hexstr(Data),self()]),
+                    Donemess = bin_to_hexstr(Data),
+                    Cmd = lists:concat([?CMD_DONECOM,Panell," ",Donemess]),
+                    os:cmd(Cmd),
                     Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
                     gen_tcp:send(Socket,<<Ans/binary>>),
                     get_message(Socket,Panell);
