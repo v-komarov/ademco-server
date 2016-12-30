@@ -1,10 +1,10 @@
 -module(ademco).
--export([start/0,server/1,wait_connect/1,dog/1,check_proc/1]).
+-export([start/0,server/0,wait_connect/1]).
 -import(hex2bin,[bin_to_hexstr/1,hexstr_to_bin/1]).
 
 
 
--define(DEBUG,true).
+%%-define(DEBUG,true).
 
 -ifdef(DEBUG).
 -define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
@@ -34,10 +34,8 @@
 
 start() ->
 
-       Tabid = ets:new(aliveTab,[ordered_set,public]),
-
        process_flag(trap_exit, true),
-       Pid = spawn_link(?MODULE, server, [Tabid]),
+       Pid = spawn_link(?MODULE, server,[]),
        register(main,Pid),
        io:format("server has been started ~p ~w~n",[calendar:local_time(),Pid]),
        loop(Pid).
@@ -57,48 +55,9 @@ loop(Pid) ->
 
 
 
-
-%% Наблюдение за состоянием связи
-dog(Tabid) ->
-    receive
-        {alive,Pid} ->
-            ets:insert(Tabid,{Pid,erlang:timestamp()}),
-            io:format("~w~n",[ets:match_object(Tabid,{'_','_'})]),
-            io:format("alive ~w~n",[Pid]),
-            check_proc(Tabid);
-        _Other -> dog(Tabid)
-    end,
-    dog(Tabid).
-
-
-
-
-
-check_proc(Tabid) ->
-
-    lists:map(
-       fun(Elem) ->
-          io:format("~w~n",[timer:now_diff(erlang:timestamp(),element(2,Elem))/1000]),
-          A = timer:now_diff(erlang:timestamp(),element(2,Elem)) / 1000,
-          if A  > 86400 ->
-            ets:match_delete(Tabid,{element(1,Elem),'_'}),
-            exit(element(1,Elem),timeout);
-            true -> ok
-          end
-       end, ets:match_object(Tabid,{'_','_'})  ),
-
-    dog(Tabid).
-
-
-
-
-
-server(Tabid) ->
+server() ->
     process_flag(trap_exit, true),
-    Pid2 = spawn_link(?MODULE, dog, [Tabid]),
-    register(dw,Pid2),
-    io:format("dog has been started ~p ~w~n",[calendar:local_time(),Pid2]),
-    {ok, ListenSocket} = gen_tcp:listen(11114, [binary, {active, false}]),
+    {ok, ListenSocket} = gen_tcp:listen(11112, [binary, {active, false}]),
     wait_connect(ListenSocket).
 
 
@@ -205,8 +164,6 @@ sync_answer(Socket,Panell) ->
                 os:cmd(Cmd),
 
                 io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
-
-                dw ! {alive,self()},
 
                 Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
                 gen_tcp:send(Socket,<<Ans/binary>>);
