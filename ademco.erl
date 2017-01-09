@@ -24,7 +24,7 @@
 
 -define(TCP_ACCEPT_TIMEOUT, 1000).
 -define(TCP_RECV_TIMEOUT, 1000).
-
+-define(TCP_PORT, 11112).
 
 %% Сервер приема сообщений от оборудования протокол ademco
 
@@ -57,7 +57,7 @@ loop(Pid) ->
 
 server() ->
     process_flag(trap_exit, true),
-    {ok, ListenSocket} = gen_tcp:listen(11112, [binary, {active, false}]),
+    {ok, ListenSocket} = gen_tcp:listen(?TCP_PORT, [binary, {active, false}]),
     wait_connect(ListenSocket).
 
 
