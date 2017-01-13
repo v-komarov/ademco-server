@@ -194,6 +194,7 @@ get_message(Socket,Panell) ->
                     <<247>> -> get_listademco(Socket,[],Panell);
                     <<254>> -> get_officer(Socket,[],Panell);
                     <<251>> -> sync_answer(Socket,Panell);
+                    <<43>> -> get_message(Socket,Panell);
                     <<_>> -> io:format("error ~p~p ~w~n",[calendar:local_time(),Binary,self()]);
                     true -> ok
 
