@@ -4,7 +4,7 @@
 
 
 
-%%-define(DEBUG,true).
+-define(DEBUG,true).
 
 -ifdef(DEBUG).
 -define(CMD_OFFICER,"cd ~/django/sur;python manage.py ademco-officer ").
@@ -76,7 +76,7 @@ wait_connect(ListenSocket) ->
 
 %%% Чтение первого байта после соединения
 get_request(Socket, BinaryList) ->
-    case gen_tcp:recv(Socket, 1) of
+    case gen_tcp:recv(Socket, 1, 600000) of
 	{ok, Binary} ->
 
 	    io:format("Connect ~w~n",[self()]),
@@ -86,9 +86,14 @@ get_request(Socket, BinaryList) ->
             true -> ok
 
         end,
+	    get_request(Socket, [Binary|BinaryList]);
 
-	    get_request(Socket, [Binary|BinaryList])
 
+    {error, timeout} ->
+
+        io:format("timeout get_request~n",[]),
+
+	    exit(self,kill)
 
     end.
 
@@ -166,7 +171,8 @@ sync_answer(Socket,Panell) ->
                 io:format("~p ~p ~w~n",[calendar:local_time(),Cmd,self()]),
 
                 Ans = list_to_binary([<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>,<<26>>]),
-                gen_tcp:send(Socket,<<Ans/binary>>);
+                gen_tcp:send(Socket,<<Ans/binary>>),
+                io:format("sent answer ok~n",[]);
                     true -> ok
             end,
         get_message(Socket,Panell)
